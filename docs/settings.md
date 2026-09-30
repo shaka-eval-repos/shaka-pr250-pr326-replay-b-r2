@@ -173,6 +173,31 @@ every mode. A task can increase the wait, but cannot lower the repository minimu
 The agent counts verified reports. The merge helper permits optional pending
 checks (`UNSTABLE`) for `none` and `one`; `all` requires `CLEAN`.
 
+## `review.local_review_count`
+
+**Optional; default `1`.** Positive integer number of distinct local reviewers to
+select for each committed head. Set it to `2` when you want two independent
+perspectives on the same change. The first reviewer keeps the existing provider
+preference and fallback; additional available reviewers follow the configured
+[reviewer order](#reviewlocal_review_agents).
+
+Selection returns fewer reviewers when fewer distinct identities are available.
+It preserves the first reviewer's outcome and fallback note. An unavailable CLI
+still leaves the existing fresh-context fallback available.
+
+More reviewers repeat the full diff and increase review tokens, provider charges
+or subscription usage, and the work of handling findings. Concurrent runs can
+reduce waiting time but do not reduce that usage. Start with one unless another
+perspective earns its cost; quality and speed gains depend on the task.
+
+Install and sign in to the reviewers you intend to use, as described in
+[adding a second reviewer](#add-a-second-reviewer). Ask your agent:
+“Review this committed head with two different reviewers in one batch, then
+handle every finding before reviewing any fixes.” The
+[concurrent review procedure](../skills/shaka/references/local-review.md#review-one-head-with-several-reviewers)
+explains the shared ledger and failure handling. Selection itself launches no
+processes and changes no GitHub review or merge requirements.
+
 ## `review.local_review_agents`
 
 **Optional.** Ordered reviewer preferences, not required local installations.

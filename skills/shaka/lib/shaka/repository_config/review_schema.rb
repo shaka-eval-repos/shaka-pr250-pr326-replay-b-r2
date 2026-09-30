@@ -78,6 +78,7 @@ module Shaka
         enum!(@review['required'])
         validate_check
         validate_review_wait
+        positive_integer!(@review.fetch('local_review_count', 1), 'review.local_review_count')
         local_review_agents!(@review[LOCAL_REVIEW_AGENTS]) if @review.key?(LOCAL_REVIEW_AGENTS)
         prompt_path!(@review[PROMPT_FILE], "review.#{PROMPT_FILE}") if @review.key?(PROMPT_FILE)
       end

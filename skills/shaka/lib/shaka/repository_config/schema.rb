@@ -77,7 +77,7 @@ module Shaka
         ReviewSchema.retired!(review)
         ReviewSchema.renamed!(review)
         optional = [ReviewSchema::CI_REVIEW_JOBS, ReviewSchema::LOCAL_REVIEW_AGENTS, 'ci_review_wait',
-                    ReviewSchema::PROMPT_FILE]
+                    ReviewSchema::PROMPT_FILE, 'local_review_count']
         keys!(review, ['required'], optional, 'review')
         ReviewSchema.new(review).validate
         local_prompt_files!(review) unless @available_commands

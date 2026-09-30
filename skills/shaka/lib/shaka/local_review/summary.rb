@@ -80,16 +80,26 @@ module Shaka
     def outcome
       open = unfixed_defects
       return "**Outcome:** the loop stopped with #{defects(open)} left for the maintainer." if open.positive?
-      return "**Outcome:** the loop ended clean: round #{@rounds.size} found nothing." if @rounds.last.findings.empty?
 
-      "**Outcome:** the loop ended with nothing left to fix. Round #{@rounds.size}'s findings are documented " \
-        "nits or risks (#{kinds(@rounds.last.findings)})."
+      batch = @rounds.select { |round| round.head == @rounds.last.head }
+      findings = batch.flat_map(&:findings)
+      label = batch.size == 1 ? "round #{@rounds.size}" : 'the final batch'
+      return "**Outcome:** the loop ended clean: #{label} found nothing." if findings.empty?
+
+      "**Outcome:** the loop ended with nothing left to fix. #{label.capitalize}'s findings are documented " \
+        "nits or risks (#{kinds(findings)})."
     end
 
     def unfixed_defects
-      findings = @rounds.flat_map(&:findings)
-      defects = findings.select { |finding| finding.kind == 'defect' }.map(&:id)
-      latest = findings.to_h { |finding| [finding.id, finding] }
+      latest = {}
+      defects = []
+      @rounds.each do |round|
+        round.findings.each do |finding|
+          key = [round.reviewer, finding.id]
+          defects << key if finding.kind == 'defect'
+          latest[key] = finding
+        end
+      end
       defects.uniq.count { |id| !latest.fetch(id).fixed? }
     end
 

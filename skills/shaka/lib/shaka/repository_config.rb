@@ -97,7 +97,7 @@ module Shaka
     end
 
     def with_default_review_wait(review)
-      { 'ci_review_wait' => 'one' }.merge(review)
+      { 'ci_review_wait' => 'one', 'local_review_count' => 1 }.merge(review)
     end
   end
 end
