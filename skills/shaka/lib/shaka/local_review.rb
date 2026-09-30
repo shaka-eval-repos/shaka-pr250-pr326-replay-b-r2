@@ -87,8 +87,8 @@ module Shaka
         @arguments.empty? && @options[:ledger] && @options[:content_file]
 
       ledger = LocalReviewLedger.new(@options[:ledger])
-      ledger.record!(JSON.parse(File.read(@options[:content_file], encoding: 'UTF-8')))
-      puts JSON.pretty_generate('ledger' => ledger.path, 'round' => ledger.rounds.size)
+      number = ledger.record!(JSON.parse(File.read(@options[:content_file], encoding: 'UTF-8')))
+      puts JSON.pretty_generate('ledger' => ledger.path, 'round' => number)
       0
     end
 

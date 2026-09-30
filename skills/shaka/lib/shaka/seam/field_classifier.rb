@@ -8,7 +8,7 @@ module Shaka
     # Review-key half of seam classification, including renamed keys and collisions.
     module ReviewFields
       REVIEW_KEYS = (%w[required] + RepositoryConfig::ReviewSchema::RENAMED.values +
-                     [RepositoryConfig::ReviewSchema::PROMPT_FILE]).uniq.freeze
+                     [RepositoryConfig::ReviewSchema::PROMPT_FILE, 'local_review_count']).uniq.freeze
       PREVIOUS_CI_KEY = 'ci_review_agents'
 
       private

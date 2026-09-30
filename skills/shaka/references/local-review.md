@@ -191,6 +191,72 @@ A local review is **UNVERIFIED** until the owner publishes its report, including
 line, to the pull request. The owner verifies each finding against the code, makes the edits and
 tests, then publishes the review after pushing.
 
+## Review one head with several reviewers
+
+Select the batch through `shaka reviewer --root . --ref "$TRUSTED"
+--implementer PROVIDER/FAMILY`. Its ordered `reviewers` array contains up to
+[`review.local_review_count`](https://github.com/shakacode/shaka/blob/main/docs/settings.md#reviewlocal_review_count)
+distinct identities. Pass `--count N` to override that setting for this selection;
+`N` must be a positive integer. The existing `reviewer`, `outcome`, and `note`
+fields describe the first reviewer. Additional available identities follow the
+configured order without case-insensitive duplicates. The count is a maximum,
+so inspect the returned list when reviewers are unavailable.
+
+Run each selected identity against the same pinned `HEAD` and `BASE`, with the
+same outside-checkout `LEDGER` path. For a two-reviewer selection containing
+Claude and Codex, after configuring their models and signing in:
+
+```bash
+shaka review run --root . --base "$BASE" --head "$HEAD" \
+  --reviewer anthropic/claude --criteria-ref "$TRUSTED" --ledger "$LEDGER" >"$RESULTS/claude.json" &
+claude_pid=$!
+shaka review run --root . --base "$BASE" --head "$HEAD" \
+  --reviewer openai/codex --criteria-ref "$TRUSTED" --ledger "$LEDGER" >"$RESULTS/codex.json" &
+codex_pid=$!
+wait "$claude_pid"; claude_status=$?
+wait "$codex_pid"; codex_status=$?
+```
+
+Create `RESULTS` outside the checkout before launching. Collect both statuses and
+read each result; in a shell using `set -e`, guard each `wait` so a failure does
+not skip collecting its peer. Do not edit, commit, or publish while reviewers
+are running. Reviewers see findings from earlier heads, with dispositions but
+without author notes. They do not see a peer's findings for their current head.
+
+Each successful result names its ledger `round`, assigned in completion order.
+Record dispositions using that number in the content JSON, for example
+`{"round": 2, "head": "FULL_REVIEWED_SHA", "reviewer": "anthropic/claude", "findings": []}`
+for a clean second round. Supply every reported finding for a nonempty report.
+Without `round`, recording still targets the last observed round for existing
+single-reviewer callers. Include `head` and `reviewer` to reject a mismatched
+target. Earlier-head dispositions close when a new batch starts. Finding IDs
+follow each reviewer across heads; equal IDs from different
+reviewers remain separate findings.
+
+Wait for every selected process, handle every result, and record every completed
+review before moving to the fix head. Ruby checks all recorded rounds in the
+batch before allowing a new head, including every peer's fix commits. It does
+not reserve slots for selected reviewers or launch a batch scheduler; waiting
+for all selected processes remains the owner's responsibility.
+
+Writes reload the ledger under a short exclusive sidecar lock and replace the
+JSON atomically. Keep its `.lock` file in place until all writers have exited;
+deleting it can split the lock between processes. Use one stable ledger path on
+a local filesystem supporting file locks and atomic rename. Locks cover writes,
+not reviewer execution. A duplicate reviewer/head, replaced history, moved
+checkout, or ledger that advanced to another head rejects the stale result
+without overwriting valid peer evidence. A rejected write returns `ledger_update`
+with the private report and usage paths retained for inspection and cleanup.
+A failed process adds no completed
+round; inspect its structured failure and any private diagnostic before applying
+the established availability fallback. Keep reports and usage files until
+publication; a missing report or incomplete disposition blocks evidence checks.
+
+Publish the complete ledger after the final batch. The comment includes every
+round, report, and disposition, with totals across reviewers. A fix in any final
+batch review requires a later reviewed head before publication. Publishing
+checks structure and report attestations; the runner checks Git ancestry.
+
 ## Run the review loop with a ledger
 
 Keep every round in one ledger, a JSON file outside the checkout, for example
@@ -233,10 +299,10 @@ earlier round used: the outcome follows each id's latest disposition, so reusing
 different problem can hide an unfixed defect. `model`, `tokens`, `cost`, and
 `estimate` are optional, as described below, and a top-level `fallback` sets the fallback notice.
 
-`review run` refuses the next round until the last round's findings are recorded. It also
-refuses a head the ledger already reviewed, a head that lacks the last reviewed head or any
-recorded fix commit, a fix recorded as the head it was found in, and a different `--base`;
-after a rebase, start a new ledger. Publishing refuses a last round that records a fix, because
+`review run` refuses a new head until every earlier review's findings are recorded. It also
+refuses a repeated reviewer/head or a return to an earlier batch head, a head that lacks the last reviewed head or any
+recorded batch fix commit, a fix recorded as the head it was found in, and a different `--base`;
+after a rebase, start a new ledger. Publishing refuses a final batch that records a fix, because
 no later round has reviewed it. The next round's prompt
 lists, as review data, every earlier finding's id, class, summary, and latest disposition
 (`fixed in SHA`, `documented nit`, `documented risk`), plus the commits since the last
@@ -256,7 +322,7 @@ The ledger is the content file. Without one, the content JSON lists `rounds`. Co
 round's `head`, `reviewer`, `report`, `prompt_source`, and `criteria_ref` from its
 `shaka review run` result, and add its `findings` in the shape above. Publishing refuses a
 round whose findings do not match its report's `FINDINGS n`, so every finding has a disposition.
-It also refuses two rounds of one commit and a fix recorded in the commit its round reviewed. A
+It also refuses duplicate reviewer/head pairs, returning to an earlier head, and a fix recorded in the commit its round reviewed. A
 content file without a ledger gets only these checks: publishing does not read Git history, so
 use `--ledger` when fixes must be proven to follow and reach the reviewed head.
 Add `model`, `tokens`, and `cost` from native usage; a missing value renders `UNKNOWN`. Leave
